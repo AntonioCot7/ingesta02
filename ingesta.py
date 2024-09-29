@@ -1,36 +1,44 @@
+import boto3
 import mysql.connector
 import csv
-import boto3
-import io
 
-db_connection = mysql.connector.connect(
-    host="3.217.247.83",
-    user="root",
-    password="utec",
-    database="tienda"
-)
+db_host = "3.217.247.83"
+db_user = "root"
+db_password = "utec"
+db_name = "tienda"
+table_name = "fabricantes"
+db_port = 8005
 
-cursor = db_connection.cursor()
-
-cursor.execute("SELECT * FROM fabricantes")
-
-rows = cursor.fetchall()
-
-column_names = [i[0] for i in cursor.description]
-
-csv_buffer = io.StringIO()
-
-csv_writer = csv.writer(csv_buffer)
-csv_writer.writerow(column_names)
-csv_writer.writerows(rows)
-
-cursor.close()
-db_connection.close()
-
-s3 = boto3.client('s3')
+ficheroUpload = "data.csv"
 nombreBucket = "antonio-ingesta02-s3"
-nombreArchivoS3 = "data.csv"
 
-s3.put_object(Bucket=nombreBucket, Key=nombreArchivoS3, Body=csv_buffer.getvalue())
+try:
+    conn = mysql.connector.connect(
+        host=db_host,
+        port=db_port,
+        user=db_user,
+        password=db_password,
+        database=db_name
+    )
 
-print("Ingesta completada")
+    cursor = conn.cursor()
+
+    query = f"SELECT * FROM {table_name}"
+    cursor.execute(query)
+
+    rows = cursor.fetchall()
+    column_names = [i[0] for i in cursor.description]
+
+    with open(ficheroUpload, mode='w', newline='') as file:
+        writer = csv.writer(file)
+        writer.writerow(column_names)
+        writer.writerows(rows)
+
+    print(f"Datos exportados exitosamente a {ficheroUpload}")
+
+    cursor.close()
+    conn.close()
+
+except mysql.connector.Error as err:
+    print(f"Error: {err}")
+
